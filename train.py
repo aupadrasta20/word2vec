@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import json
+import os
+import numpy as np
+
 
 def make_noise_dist(counts):
     counts = torch.tensor(counts, dtype = torch.float)
@@ -10,6 +14,23 @@ def make_noise_dist(counts):
 def sample_negatives(probs, batch_size, k):
     flat = torch.multinomial(probs, batch_size * k, replacement = True)
     return flat.view(batch_size, k)
+
+def save_artifacts(model, vocab, config, losses, out_dir):
+    os.makedirs(out_dir, exist_ok=True)   # create models/run1/ if it doesn't exist
+
+    emb = model.in_embed.weight.detach().cpu().numpy()
+    np.save(os.path.join(out_dir, "embeddings.npy"), emb.astype(np.float32))
+
+    with open(os.path.join(out_dir, "vocab.json"), "w") as f:
+        json.dump(vocab, f)
+
+    with open(os.path.join(out_dir, "config.json"), "w") as f:
+        json.dump(config, f, indent = 2)
+    with open(os.path.join(out_dir, "loss_history.json"), "w") as f:
+        json.dump(losses, f, indent = 2)
+    
+
+    print(f"Saved to {out_dir}: embeddings {emb.shape}")
 
 class SkipGramNS(nn.Module):
     def __init__(self, vocab_size, dim):
@@ -47,7 +68,7 @@ if __name__ == "__main__":
 
     center = torch.tensor([1, 2])
     context = torch.tensor([3, 4])
-
+    losses = []
     for step in range(200):
         negatives = torch.randint(0, V, (2, K))   # fresh random negatives every step
 
@@ -58,5 +79,11 @@ if __name__ == "__main__":
 
         if step % 20 == 0:
             print(step, loss.item())
+            losses.append(loss.item())
+            
+
+    vocab = {"id2word": [f"w{i}" for i in range(V)], "counts": [1] * V}
+    config = {"dim": D, "neg_k": K, "lr": 0.05, "steps": 200, "seed": 0}
+    save_artifacts(model, vocab, config, losses, "models/run1")
 
     

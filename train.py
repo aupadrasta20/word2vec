@@ -32,6 +32,22 @@ def save_artifacts(model, vocab, config, losses, out_dir):
 
     print(f"Saved to {out_dir}: embeddings {emb.shape}")
 
+def load_data(data_dir):
+    with open(os.path.join(data_dir, "vocab.json")) as f:
+        vocab = json.load(f)                         
+
+    pairs = np.load(os.path.join(data_dir, "pairs.npy"))
+    V = len(vocab["id2word"])
+
+    # Sanity checks: fail loudly if the format isn't what we agreed
+    assert len(vocab["counts"]) == V, "counts and id2word have different lengths"
+    assert pairs.ndim == 2 and pairs.shape[1] == 2, f"pairs should be (N, 2), got {pairs.shape}"
+    assert pairs.min() >= 0, "a pair has a negative ID"          
+    assert pairs.max() < V, "a pair has an ID >= vocab size"    
+
+    print(f"Loaded vocab of {V:,} words and {len(pairs):,} pairs")
+    return vocab, pairs
+
 class SkipGramNS(nn.Module):
     def __init__(self, vocab_size, dim):
         super().__init__()

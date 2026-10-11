@@ -103,6 +103,8 @@ This is a qualitative check, not a benchmark.
 - Similarity reflects shared *contexts*, not identical meaning (antonyms often score high).
 - No frequent-word subsampling or phrase detection ("new york" is two tokens).
 - No quantitative benchmark (e.g. analogy or WordSim) was run.
+- No lemmatization (i.e. whale, whales, whale's are all separate words)
+- Words such as 'the' fail, because they have no meaningful neigbors (top: japan 0.52, swandam 0.49), since stopwords co-occur with everything and frequent-word subsampling isn’t applied.” Showing a failure makes the good results more believable.
 
 ## Optional experiment
 
@@ -113,4 +115,4 @@ more topical similarity.
 ## Contributions
 
 - **Ryan Liu**: `preprocess.py`, `app.py`, `make_placeholder.py`, tests, interface doc, README.
-- **Akhil Upadrasta**: `train.py` (Skip-gram model, negative sampling, training loop), `evaluate.py` (loading, cosine similarity, nearest neighbors).
+- **Akhil Upadrasta**: `train.py` (Skip-gram model, negative sampling, training loop [written with AI assistance, reviewed]), `evaluate.py` (loading, cosine similarity, nearest neighbors).

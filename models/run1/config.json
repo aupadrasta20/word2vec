@@ -6,6 +6,7 @@
   "epochs": 3,
   "seed": 0,
   "device": "cpu",
+  "train_seconds": 30.3,
   "preprocess_meta": {
     "corpus_files": [
       "pg11.txt",

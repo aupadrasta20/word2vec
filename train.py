@@ -108,6 +108,13 @@ def main():
     N, B = len(pairs), args.batch_size
     num_batches = (N + B - 1) // B   # last batch may be smaller
     losses = []
+    N, B = len(pairs), args.batch_size
+    num_batches = (N + B - 1) // B   # last batch may be smaller
+    losses = []
+    train_start = time.time()                       # NEW
+    for epoch in range(1, args.epochs + 1):
+        start = time.time()
+    train_start = time.time()
     for epoch in range(1, args.epochs + 1):
         start = time.time()
         perm = torch.randperm(N, device=device)   # new random order each epoch
@@ -139,6 +146,7 @@ def main():
         "epochs": args.epochs,
         "seed": args.seed,
         "device": device,
+        "train_seconds": round(time.time() - train_start, 1),   # NEW
         "preprocess_meta": preprocess_meta,
     }
     # Row i of the embeddings must be word i of the vocab, or every lookup is wrong.

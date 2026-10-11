@@ -44,18 +44,24 @@ def most_similar(word, emb, word2id:dict, id2word:list, k=10):
 
 
 if __name__ == "__main__":
-    id2word = ["king", "queen", "apple", "banana"]
-    word2id = {w: i for i, w in enumerate(id2word)}
-    emb = np.array([[1.0, 0.1],
-                    [0.9, 0.2],
-                    [0.1, 1.0],
-                    [0.2, 0.9]])
+    import argparse
 
-    print(most_similar("king", emb, word2id, id2word, k=3))
-    print(most_similar("apple", emb, word2id, id2word, k=3))
+    parser = argparse.ArgumentParser(description="Print nearest neighbors for each word.")
+    parser.add_argument("words", nargs="+", help="words to look up, e.g. holmes king ship")
+    parser.add_argument("--model-dir", default="models/run1")
+    parser.add_argument("-k", type=int, default=10, help="number of neighbors")
+    args = parser.parse_args()
 
-    emb, word2id, id2word = load_model("models/run1")
-    print(emb.shape)
-    print(most_similar("w1", emb, word2id, id2word, k=3))
+    emb, word2id, id2word = load_model(args.model_dir)
+    print(f"Loaded {args.model_dir}: {emb.shape[0]:,} words, dim {emb.shape[1]}")
 
-    print(most_similar("dog", emb, word2id, id2word))
+    for word in args.words:
+        word = word.lower()   # the vocabulary is lowercase (see preprocess.tokenize)
+        try:
+            results = most_similar(word, emb, word2id, id2word, k=args.k)
+        except KeyError:
+            print(f"\n{word}: not in the vocabulary (too rare in the corpus, or never appears)")
+            continue
+        print(f"\n{word}:")
+        for neighbor, score in results:
+            print(f"  {neighbor:<15} {score:.3f}")

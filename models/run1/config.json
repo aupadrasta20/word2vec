@@ -1,0 +1,24 @@
+{
+  "dim": 100,
+  "neg_k": 5,
+  "lr": 0.003,
+  "batch_size": 1024,
+  "epochs": 3,
+  "seed": 0,
+  "device": "cpu",
+  "preprocess_meta": {
+    "corpus_files": [
+      "pg11.txt",
+      "pg1342.txt",
+      "pg1661.txt",
+      "pg2600.txt",
+      "pg2701.txt"
+    ],
+    "min_count": 5,
+    "window": 2,
+    "num_tokens_raw": 1053368,
+    "num_tokens_kept": 1021378,
+    "vocab_size": 10822,
+    "num_pairs": 4085506
+  }
+}

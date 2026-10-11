@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import argparse
 import json
 import os
+import time
 import numpy as np
 
 
@@ -73,33 +75,76 @@ class SkipGramNS(nn.Module):
         return loss
 
 
-if __name__ == "__main__":
-    torch.manual_seed(0)
-    probs = make_noise_dist([100, 10, 1])
-    print(probs)
-    print(sample_negatives(probs, 2, 5))
-    V, D, K = 10, 4, 5
-    model = SkipGramNS(vocab_size=V, dim=D)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
+def main():
+    parser = argparse.ArgumentParser(description="Train Skip-gram Word2Vec with negative sampling.")
+    parser.add_argument("--dim", type=int, default=100)
+    parser.add_argument("--neg-k", type=int, default=5)
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=1024)
+    parser.add_argument("--lr", type=float, default=0.003)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--data-dir", default="data/processed")
+    parser.add_argument("--out-dir", default="models/run1")
+    args = parser.parse_args()
 
-    center = torch.tensor([1, 2])
-    context = torch.tensor([3, 4])
+    # Same seed -> same initial weights, shuffles and negatives -> same model.
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    vocab, pairs = load_data(args.data_dir)
+    with open(os.path.join(args.data_dir, "preprocess_meta.json")) as f:
+        preprocess_meta = json.load(f)
+    V = len(vocab["id2word"])
+
+    # Move everything to the device once, not on every batch.
+    pairs = torch.from_numpy(pairs).to(device)
+    probs = make_noise_dist(vocab["counts"]).to(device)
+
+    model = SkipGramNS(vocab_size=V, dim=args.dim).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    N, B = len(pairs), args.batch_size
+    num_batches = (N + B - 1) // B   # last batch may be smaller
     losses = []
-    for step in range(200):
-        negatives = torch.randint(0, V, (2, K))   # fresh random negatives every step
+    for epoch in range(1, args.epochs + 1):
+        start = time.time()
+        perm = torch.randperm(N, device=device)   # new random order each epoch
+        total_loss = 0.0
+        for step in range(num_batches):
+            batch = pairs[perm[step * B:(step + 1) * B]]
+            center, context = batch[:, 0], batch[:, 1]
+            negatives = sample_negatives(probs, len(batch), args.neg_k)
 
-        loss = model(center, context, negatives)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            loss = model(center, context, negatives)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        if step % 20 == 0:
-            print(step, loss.item())
-            losses.append(loss.item())
-            
+            # loss is a per-pair mean, so weight by batch size for an exact epoch average
+            total_loss += loss.item() * len(batch)
+            if step % 500 == 0:
+                print(f"  epoch {epoch} step {step:>5}/{num_batches}  loss {loss.item():.4f}")
 
-    vocab = {"id2word": [f"w{i}" for i in range(V)], "counts": [1] * V}
-    config = {"dim": D, "neg_k": K, "lr": 0.05, "steps": 200, "seed": 0}
-    save_artifacts(model, vocab, config, losses, "models/run1")
+        avg = total_loss / N
+        losses.append(avg)
+        print(f"Epoch {epoch}/{args.epochs}: avg loss {avg:.4f} ({time.time() - start:.0f}s)")
 
-    
+    config = {
+        "dim": args.dim,
+        "neg_k": args.neg_k,
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "epochs": args.epochs,
+        "seed": args.seed,
+        "device": device,
+        "preprocess_meta": preprocess_meta,
+    }
+    # Row i of the embeddings must be word i of the vocab, or every lookup is wrong.
+    assert model.in_embed.weight.shape[0] == len(vocab["id2word"])
+    save_artifacts(model, vocab, config, losses, args.out_dir)
+
+
+if __name__ == "__main__":
+    main()
